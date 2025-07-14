@@ -1,0 +1,16 @@
+[package]
+name = "rustilege"
+version = "0.3.0"
+edition = "2024"
+authors = ["Tina-1300"]
+description = "Rust library allowing you to recover current privileges under Windows"
+license = "MIT"
+keywords = ["api", "windows", "privileges", "rustilege", "parser"]
+repository = "https://github.com/Tina-1300/rustilege"
+
+[dependencies]
+windows = { version = "0.61.3", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading"
+] }
