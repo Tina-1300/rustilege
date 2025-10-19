@@ -10,6 +10,7 @@ pub enum IntegrityLevel {
     Error = 0xFFFFFFFF, 
 }
 
+#[cfg(target_os = "windows")]
 impl Rustilege{
 
     pub fn get_current_integrity_level() -> IntegrityLevel{
@@ -90,4 +91,38 @@ impl Rustilege{
     }
   
 
+}
+
+// not yet tested to be tested
+#[cfg(target_os = "linux")]
+pub struct Rustilege;
+
+// not yet tested to be tested
+#[cfg(target_os = "linux")]
+impl Rustilege {
+    pub fn get_current_integrity_level() -> IntegrityLevel {
+        use nix::unistd::Uid;
+
+        let uid = Uid::effective();
+
+        if uid.as_raw() == 0 {
+            IntegrityLevel::Administrator
+        } else if uid.as_raw() >= 1000 {
+            IntegrityLevel::User
+        } else {
+            IntegrityLevel::Guest
+        }
+    }
+}
+
+
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+pub struct Rustilege;
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+impl Rustilege {
+    pub fn get_current_integrity_level() -> IntegrityLevel {
+        IntegrityLevel::Error // OS not supported
+    }
 }
