@@ -101,10 +101,20 @@ pub struct Rustilege;
 #[cfg(target_os = "linux")]
 impl Rustilege {
     pub fn get_current_integrity_level() -> IntegrityLevel {
-        use nix::unistd::Uid;
+        //use nix::unistd::Uid;
+        use std::{fs::Metadata, os::unix::fs::MetadataExt};
+        let uid: Option<u32> = std::fs::metadata("/proc/self").map(|m:Metadata|m.uid()).ok();
 
-        let uid = Uid::effective();
+        if uid == Some(0) {
+            IntegrityLevel::Administrator
+        } else if uid >= Some(1000) {
+            IntegrityLevel::User
+        }else{
+            IntegrityLevel::Guest
+        }
 
+        //let uid = Uid::effective();
+        /*
         if uid.as_raw() == 0 {
             IntegrityLevel::Administrator
         } else if uid.as_raw() >= 1000 {
@@ -112,11 +122,13 @@ impl Rustilege {
         } else {
             IntegrityLevel::Guest
         }
+        */
+
     }
 }
 
 
-
+/*
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 pub struct Rustilege;
 
@@ -126,3 +138,4 @@ impl Rustilege {
         IntegrityLevel::Error // OS not supported
     }
 }
+*/
