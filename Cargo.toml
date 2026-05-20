@@ -16,6 +16,6 @@ windows = { version = "0.62.2", features = [
     "Win32_Security",
     "Win32_System_Threading"
 ] }
-
+# tester sur le raspberry pi si on peut ce débarrasser de la dépendance nix ou si elle nous est utile 
 [target.'cfg(unix)'.dependencies]
 nix = "0.30.1"

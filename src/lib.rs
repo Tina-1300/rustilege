@@ -1,3 +1,17 @@
+/*
+TODO : 
+
+- Remove dependenci nix if is inutile on linux for code run
+- unit test Linux and Windows 
+- Refactoring code 
+- Adding Documentation
+- Adding CI/CD
+- vérifier si ses possible de suprimmer le repository et repartire de 0 quand on a un repo tout propre sans perdre la library 
+sur la package rust 
+
+
+*/
+
 #[cfg(target_os = "windows")]
 pub struct Rustilege;
 
@@ -130,16 +144,15 @@ impl Rustilege {
 }
 
 
-/*
-// code it's not works : 
 
+// if the code is not under Linux or Windows
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 pub struct Rustilege;
 
+// if the code is not under Linux or Windows
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 impl Rustilege {
     pub fn get_current_integrity_level() -> IntegrityLevel {
         IntegrityLevel::Error // OS not supported
     }
 }
-*/
