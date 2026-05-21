@@ -1,17 +1,3 @@
-/*
-TODO : 
-
-- Remove dependenci nix if is inutile on linux for code run
-- unit test Linux and Windows 
-- Refactoring code 
-- Adding Documentation
-- Adding CI/CD
-- vérifier si ses possible de suprimmer le repository et repartire de 0 quand on a un repo tout propre sans perdre la library 
-sur la package rust 
-
-
-*/
-
 #[cfg(target_os = "windows")]
 pub struct Rustilege;
 
@@ -126,19 +112,6 @@ impl Rustilege {
         }else{
             IntegrityLevel::Guest
         }
-
-        /*
-        // code it's not works : 
-        use nix::unistd::Uid;
-        let uid = Uid::effective();
-        if uid.as_raw() == 0 {
-            IntegrityLevel::Administrator
-        } else if uid.as_raw() >= 1000 {
-            IntegrityLevel::User
-        } else {
-            IntegrityLevel::Guest
-        }
-        */
 
     }
 }
