@@ -1,3 +1,13 @@
+//! # Rustilege
+//!
+//! A Windows privilege utility library.
+//!
+//! ## Platform support
+//!
+//! Currently supported:
+//!
+//! - Windows
+
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 
@@ -16,11 +26,20 @@ pub enum IntegrityLevel {
 }
 
 
+/// Errors returned when retrieving Windows security information.
 #[derive(Debug)]
 pub enum RustilegeError {
+
+    /// Unable to open the current process token.
     OpenProcessToken(windows::core::Error),
+
+    /// Unable to query token information.
     GetTokenInformation(windows::core::Error),
+
+    /// Invalid Windows security identifier.
     InvalidSid,
+
+    /// Unknown integrity level returned by Windows.
     UnknownIntegrityLevel(u32),
 }
 
