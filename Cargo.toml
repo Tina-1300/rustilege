@@ -1,12 +1,14 @@
 [package]
 name = "rustilege"
-version = "0.6.4"
+version = "0.6.5"
 edition = "2024"
 authors = ["Tina-1300"]
 description = "Rust library allowing you to recover current privileges under Windows"
 license = "MIT"
 keywords = ["api", "windows", "privileges", "rustilege"]
 repository = "https://github.com/Tina-1300/rustilege"
+exclude = [".*"]
+
 
 [dependencies]
 
