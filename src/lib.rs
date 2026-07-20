@@ -1,141 +1,224 @@
 #[cfg(target_os = "windows")]
-
-pub struct Rustilege;
-
-#[derive(PartialEq)]
-pub enum IntegrityLevel {
-    System = 0x00004000,
-    Administrator = 0x00003000,
-    User = 0x00002000,
-    Low = 0x00001000,
-    Guest = 0x00000000,
-    Error = 0xFFFFFFFF, 
-}
+use windows::Win32::Foundation::{CloseHandle, HANDLE};
 
 #[cfg(target_os = "windows")]
-impl Rustilege{
+pub struct Rustilege;
 
-    pub fn get_current_integrity_level() -> IntegrityLevel{
 
-        use windows::Win32::Foundation::{CloseHandle, HANDLE};
-        use windows::Win32::Security::{
-            GetTokenInformation, TokenIntegrityLevel, TOKEN_MANDATORY_LABEL, TOKEN_QUERY, SID, PSID,
-        };
-        use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+pub enum IntegrityLevel {
+    Guest = 0x00000000,
+    Low = 0x00001000,
+    User = 0x00002000,
+    Administrator = 0x00003000,
+    System = 0x00004000,
+}
 
-        let mut token_handle: HANDLE = HANDLE::default();
-        let current_process = unsafe { GetCurrentProcess() };
 
-        if unsafe { OpenProcessToken(current_process, TOKEN_QUERY, &mut token_handle) }.is_err() {
-            return IntegrityLevel::Error;
+#[derive(Debug)]
+pub enum RustilegeError {
+    OpenProcessToken(windows::core::Error),
+    GetTokenInformation(windows::core::Error),
+    InvalidSid,
+    UnknownIntegrityLevel(u32),
+}
+
+
+#[cfg(target_os = "windows")]
+struct TokenHandle(HANDLE);
+
+
+#[cfg(target_os = "windows")]
+impl Drop for TokenHandle {
+
+    fn drop(&mut self) {
+        unsafe {
+            let _ = CloseHandle(self.0);
         }
+    }
+}
 
-        let mut token_info_size = 0;
-        let _ = unsafe {
-            GetTokenInformation(
-                token_handle,
+
+#[cfg(target_os = "windows")]
+impl Rustilege {
+
+    pub fn get_current_integrity_level()
+        -> Result<IntegrityLevel, RustilegeError>
+    {
+
+        use windows::Win32::Security::{
+            GetTokenInformation,
+            TokenIntegrityLevel,
+            TOKEN_MANDATORY_LABEL,
+            TOKEN_QUERY,
+            SID,
+            PSID,
+        };
+
+        use windows::Win32::System::Threading::{
+            GetCurrentProcess,
+            OpenProcessToken,
+        };
+
+
+        let mut raw_handle = HANDLE::default();
+
+
+        unsafe {
+            OpenProcessToken(
+                GetCurrentProcess(),
+                TOKEN_QUERY,
+                &mut raw_handle
+            )
+        }
+        .map_err(RustilegeError::OpenProcessToken)?;
+
+
+        let _token = TokenHandle(raw_handle);
+
+
+        let mut token_info_size = 0u32;
+
+
+        unsafe {
+            let _ = GetTokenInformation(
+                raw_handle,
                 TokenIntegrityLevel,
                 None,
                 0,
                 &mut token_info_size,
-            )
-        };
-
-        if token_info_size == 0 {
-            let _ = unsafe { CloseHandle(token_handle) };
-            return IntegrityLevel::Error;
+            );
         }
 
-        let mut buffer = vec![0u8; token_info_size as usize];
-        let token_info_ptr = buffer.as_mut_ptr() as *mut std::ffi::c_void;
 
-        if unsafe {
+        if token_info_size == 0 {
+            return Err(
+                RustilegeError::GetTokenInformation(
+                    windows::core::Error::from_thread()
+                )
+            );
+        }
+
+
+        let mut buffer = vec![0u8; token_info_size as usize];
+
+
+        unsafe {
             GetTokenInformation(
-                token_handle,
+                raw_handle,
                 TokenIntegrityLevel,
-                Some(token_info_ptr),
+                Some(buffer.as_mut_ptr() as *mut _),
                 token_info_size,
                 &mut token_info_size,
             )
-        }.is_err(){
-            let _ = unsafe { CloseHandle(token_handle) };
-            return IntegrityLevel::Error;
+        }
+        .map_err(RustilegeError::GetTokenInformation)?;
+
+
+        let token_label =
+            unsafe {
+                &*(buffer.as_ptr() as *const TOKEN_MANDATORY_LABEL)
+            };
+
+
+        let sid: PSID = token_label.Label.Sid;
+
+
+        if sid.0.is_null() {
+            return Err(RustilegeError::InvalidSid);
         }
 
-        let token_label = unsafe { &*(token_info_ptr as *const TOKEN_MANDATORY_LABEL) };
-        let sid_ptr: PSID = token_label.Label.Sid;
 
-        if sid_ptr.0.is_null() {
-            let _ = unsafe { CloseHandle(token_handle) };
-            return IntegrityLevel::Error;
+        let sid = sid.0 as *const SID;
+
+
+        let sub_authority_count =
+            unsafe {
+                (*sid).SubAuthorityCount as usize
+            };
+
+
+        if sub_authority_count == 0 || sub_authority_count > 15 {
+            return Err(RustilegeError::InvalidSid);
         }
 
-        let sid = sid_ptr.0 as *const SID;
-        let sub_auth_count = unsafe { (*sid).SubAuthorityCount as usize };
 
-        if sub_auth_count == 0 || sub_auth_count > 15 {
-            let _ = unsafe { CloseHandle(token_handle) };
-            return IntegrityLevel::Error;
-        }
+        let integrity_level =
+            unsafe {
+                (*sid)
+                    .SubAuthority[sub_authority_count - 1]
+            };
 
-        let integrity_level = unsafe { (*sid).SubAuthority[sub_auth_count - 1] };
-        let _ = unsafe { CloseHandle(token_handle) };
 
         match integrity_level {
-            0x00000000 => IntegrityLevel::Guest, 
-            0x00001000 => IntegrityLevel::Low,
-            0x00002000 => IntegrityLevel::User,
-            0x00003000 => IntegrityLevel::Administrator, 
-            0x00004000 => IntegrityLevel::System,
-            _ => IntegrityLevel::Error,
+
+            0x00000000 =>
+                Ok(IntegrityLevel::Guest),
+
+            0x00001000 =>
+                Ok(IntegrityLevel::Low),
+
+            0x00002000 =>
+                Ok(IntegrityLevel::User),
+
+            0x00003000 =>
+                Ok(IntegrityLevel::Administrator),
+
+            0x00004000 =>
+                Ok(IntegrityLevel::System),
+
+            value =>
+                Err(
+                    RustilegeError::UnknownIntegrityLevel(value)
+                ),
         }
-
     }
-  
-
 }
 
 
 
 #[cfg(test)]
 mod tests {
-    use super::{Rustilege, IntegrityLevel};
+
+    use super::{
+        Rustilege,
+        IntegrityLevel,
+    };
+
 
     #[test]
-    fn test_get_current_integrity_level_match(){
-        let level = Rustilege::get_current_integrity_level();
+    fn test_get_current_integrity_level() {
 
-        match level {
-            IntegrityLevel::System
-            | IntegrityLevel::Administrator
-            | IntegrityLevel::User
-            | IntegrityLevel::Low
-            | IntegrityLevel::Guest => {
-                assert!(true);
-            }
-            IntegrityLevel::Error => {
-                panic!("Error retrieving integrity level");
-            }
-        }
+        let level =
+            Rustilege::get_current_integrity_level()
+                .expect("failed retrieving integrity level");
+
+
+        assert!(
+            matches!(
+                level,
+                IntegrityLevel::System
+                | IntegrityLevel::Administrator
+                | IntegrityLevel::User
+                | IntegrityLevel::Low
+                | IntegrityLevel::Guest
+            )
+        );
     }
+
 
     #[test]
-    fn test_get_current_integrity_level_if(){
-        let level = Rustilege::get_current_integrity_level();
+    fn test_integrity_level_values() {
 
-        if level == IntegrityLevel::Error {
-            panic!("Error retrieving integrity level");
-        }
+        assert_eq!(
+            IntegrityLevel::System as u32,
+            0x00004000
+        );
 
-        if level == IntegrityLevel::System || 
-        level == IntegrityLevel::Administrator || 
-        level == IntegrityLevel::User ||
-        level == IntegrityLevel::Low ||
-        level == IntegrityLevel::Guest {
-            assert!(true);
-        }
-
+        assert_eq!(
+            IntegrityLevel::Administrator as u32,
+            0x00003000
+        );
     }
-    
-
 }
