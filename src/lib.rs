@@ -1,6 +1,8 @@
 #[cfg(target_os = "windows")]
+
 pub struct Rustilege;
 
+#[derive(PartialEq)]
 pub enum IntegrityLevel {
     System = 0x00004000,
     Administrator = 0x00003000,
@@ -94,38 +96,46 @@ impl Rustilege{
 }
 
 
-#[cfg(target_os = "linux")]
-pub struct Rustilege;
 
+#[cfg(test)]
+mod tests {
+    use super::{Rustilege, IntegrityLevel};
 
-#[cfg(target_os = "linux")]
-impl Rustilege {
-    pub fn get_current_integrity_level() -> IntegrityLevel {
+    #[test]
+    fn test_get_current_integrity_level_match(){
+        let level = Rustilege::get_current_integrity_level();
 
-        use std::{fs::Metadata, os::unix::fs::MetadataExt};
-        let uid: Option<u32> = std::fs::metadata("/proc/self").map(|m:Metadata|m.uid()).ok();
+        match level {
+            IntegrityLevel::System
+            | IntegrityLevel::Administrator
+            | IntegrityLevel::User
+            | IntegrityLevel::Low
+            | IntegrityLevel::Guest => {
+                assert!(true);
+            }
+            IntegrityLevel::Error => {
+                panic!("Error retrieving integrity level");
+            }
+        }
+    }
 
-        if uid == Some(0) {
-            IntegrityLevel::Administrator
-        } else if uid >= Some(1000) {
-            IntegrityLevel::User
-        }else{
-            IntegrityLevel::Guest
+    #[test]
+    fn test_get_current_integrity_level_if(){
+        let level = Rustilege::get_current_integrity_level();
+
+        if level == IntegrityLevel::Error {
+            panic!("Error retrieving integrity level");
+        }
+
+        if level == IntegrityLevel::System || 
+        level == IntegrityLevel::Administrator || 
+        level == IntegrityLevel::User ||
+        level == IntegrityLevel::Low ||
+        level == IntegrityLevel::Guest {
+            assert!(true);
         }
 
     }
-}
+    
 
-
-
-// if the code is not under Linux or Windows
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
-pub struct Rustilege;
-
-// if the code is not under Linux or Windows
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
-impl Rustilege {
-    pub fn get_current_integrity_level() -> IntegrityLevel {
-        IntegrityLevel::Error // OS not supported
-    }
 }
